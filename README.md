@@ -1,7 +1,7 @@
 # oo 학원 평가 도우미 (Agent 기반 자동 채점 웹 서비스)
 
 - **학번 / 이름**: 202439689 / 서관우
-- **배포 URL**: https://<배포 후 주소 입력>.streamlit.app
+- **배포 URL**:https://academy-agent-202439689.streamlit.app
 
 ## 주요 기능
 | 요구사항 | 구현 내용 |
@@ -31,6 +31,6 @@ streamlit run app.py
 ```
 
 ## 기술 스택
-Python 3.13 · Streamlit · pdfplumber · pandas · openpyxl · LangChain / LangGraph · OpenAI (gpt-4o-mini)
+Python 3.12 · Streamlit · pdfplumber · pandas · openpyxl · LangChain / LangGraph · OpenAI (gpt-4.1-mini)
 
 - **배포 URL**: https://academy-agent-202439689.streamlit.app
