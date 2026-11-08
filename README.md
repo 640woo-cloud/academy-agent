@@ -33,4 +33,3 @@ streamlit run app.py
 ## 기술 스택
 Python 3.12 · Streamlit · pdfplumber · pandas · openpyxl · LangChain / LangGraph · OpenAI (gpt-4.1-mini)
 
-- **배포 URL**: https://academy-agent-202439689.streamlit.app
