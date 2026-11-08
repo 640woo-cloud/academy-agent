@@ -15,18 +15,15 @@ import pdfplumber
 CIRCLED = {"①": 1, "②": 2, "③": 3, "④": 4, "⑤": 5}
 
 
+# ---------------------------------------------------------------------------
 # 1. 정답 PDF 파싱
-
+# ---------------------------------------------------------------------------
 def parse_answer_pdf(file_bytes: bytes) -> pd.DataFrame:
     """정답표 PDF에서 (문항번호, 정답, 배점)을 추출한다."""
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
         text = "\n".join((p.extract_text() or "") for p in pdf.pages)
 
-    # "문항번호  정답(①~⑤)  배점" 패턴. 한 줄에 4세트가 있어도 findall로 모두 잡힌다.
-    pattern = re.compile(r"(?<!\d)(\d{1,2})\s*([①②③④⑤])\s*(\d)(?!\d)")
-    rows = {}
-    for num, ans, pts in pattern.findall(text):
-        rows[int(num)] = (CIRCLED[ans], int(pts))
+    rows = _extract_key_rows(text)
 
     if not rows:
         raise ValueError("정답 PDF에서 '문항번호-정답-배점'을 찾지 못했습니다. 정답표 PDF가 맞는지 확인해 주세요.")
@@ -42,8 +39,27 @@ def parse_answer_pdf(file_bytes: bytes) -> pd.DataFrame:
     return df
 
 
-# 2. 문제지 PDF 파싱 (유사 문제 생성용 원문 추출)
+def _extract_key_rows(text: str) -> dict[int, tuple[int, int]]:
+    """정답표 텍스트에서 {문항: (정답, 배점)}을 뽑는다.
+    1순위: 동그라미 숫자(①~⑤) 정답 / 2순위: 일반 숫자(1~5) 정답."""
+    circled = re.compile(r"(?<!\d)(\d{1,2})\s*([①②③④⑤])\s*(\d)(?!\d)")
+    rows = {int(n): (CIRCLED[a], int(p)) for n, a, p in circled.findall(text)}
+    if rows:
+        return rows
+    # "1 3 2  13 2 3 ..." 처럼 (문항 정답 배점) 세 숫자가 반복되는 줄만 사용
+    plain = re.compile(r"(?<!\d)(\d{1,2})\s+([1-5])\s+([1-5])(?!\d)")
+    for line in text.splitlines():
+        nums = re.findall(r"\d+", line)
+        if len(nums) < 3 or len(nums) % 3:
+            continue
+        for n, a, p in plain.findall(line):
+            rows.setdefault(int(n), (int(a), int(p)))
+    return rows
 
+
+# ---------------------------------------------------------------------------
+# 2. 문제지 PDF 파싱 (유사 문제 생성용 원문 추출)
+# ---------------------------------------------------------------------------
 def parse_question_pdf(file_bytes: bytes) -> dict[int, str]:
     """문제지 PDF(2단 편집)를 좌/우 단으로 나눠 읽고 문항별 텍스트를 반환한다."""
     chunks = []
@@ -79,8 +95,9 @@ def parse_question_pdf(file_bytes: bytes) -> dict[int, str]:
     return questions
 
 
+# ---------------------------------------------------------------------------
 # 3. OMR 결과 읽기
-
+# ---------------------------------------------------------------------------
 def read_omr(file_bytes: bytes, filename: str) -> pd.DataFrame:
     if filename.lower().endswith(".csv"):
         df = pd.read_csv(io.BytesIO(file_bytes))
@@ -97,8 +114,9 @@ def read_omr(file_bytes: bytes, filename: str) -> pd.DataFrame:
     return out
 
 
+# ---------------------------------------------------------------------------
 # 4. 채점 + 통계
-
+# ---------------------------------------------------------------------------
 @dataclass
 class GradingResult:
     answer_key: pd.DataFrame          # 문항, 정답, 배점
@@ -163,7 +181,9 @@ def grade(answer_key: pd.DataFrame, omr: pd.DataFrame, questions: dict[int, str]
     return GradingResult(answer_key, omr, correct, scores, item, summary, questions or {})
 
 
+# ---------------------------------------------------------------------------
 # 5. 학생 찾기 (예: "87번 학생", "87", "900학생")
+# ---------------------------------------------------------------------------
 def find_student(result: GradingResult, query: str) -> pd.DataFrame:
     q = str(query).strip()
     sc = result.scores
